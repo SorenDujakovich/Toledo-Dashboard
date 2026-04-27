@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toledo, OH — Property &amp; Tax Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f4f1ea;--paper:#fbf9f3;--ink:#1a1a1a;--muted:#6e6862;--line:#d8d2c3;
+  --red:#a83232;--green:#2a7a4a;--teal:#2d5b6b;--purple:#6b3f8a;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);padding:24px 16px;min-height:100vh}
+.page{max-width:1120px;margin:0 auto;background:var(--paper);padding:36px 40px;border:1px solid var(--line);box-shadow:0 2px 20px rgba(0,0,0,.06)}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--red);font-weight:600;margin-bottom:10px}
+h1{font-family:'Playfair Display',serif;font-weight:900;font-size:38px;line-height:1.1;margin-bottom:6px}
+.sub{font-size:14px;color:var(--muted);margin-bottom:5px}
+.meta{font-size:11px;color:var(--muted);padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:22px}
+
+/* tabs */
+.tabs{display:flex;border:1px solid var(--line);margin-bottom:22px;background:#fff}
+.tab{flex:1;padding:14px 8px;background:transparent;border:none;border-right:1px solid var(--line);
+  font-family:'Inter',sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--muted);cursor:pointer;transition:all .15s;text-align:center}
+.tab:last-child{border-right:none}
+.tab:hover{background:#faf8f1;color:var(--ink)}
+.tab.on{background:var(--ink);color:#fbf9f3}
+.tab small{display:block;font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;margin-top:2px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);background:#fff;margin-bottom:22px}
+.st{padding:13px 15px;border-right:1px solid var(--line)}
+.st:last-child{border-right:none}
+.st-l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;font-weight:600}
+.st-v{font-family:'Playfair Display',serif;font-size:21px;font-weight:700}
+.st-v.rd{color:var(--red)}.st-v.gn{color:var(--green)}.st-v.tl{color:var(--teal)}
+.st-v small{font-size:12px;color:var(--muted);font-weight:400;font-family:'Inter',sans-serif}
+
+/* map area */
+.maprow{display:grid;grid-template-columns:1fr 270px;border:1px solid var(--line);margin-bottom:26px}
+.mapbox{position:relative;height:510px}
+.leafmap{height:100%;background:#e8e4d8}
+.sidebox{background:#fff;border-left:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:13px;overflow-y:auto}
+.s-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px}
+.s-sub{font-size:11px;color:var(--muted)}
+
+/* legend scale */
+.scale{display:flex;flex-direction:column;border:1px solid var(--line)}
+.sc-row{display:flex;align-items:center;border-bottom:1px solid var(--line)}
+.sc-row:last-child{border-bottom:none}
+.sc-sw{width:32px;height:26px;flex-shrink:0;border-right:1px solid var(--line)}
+.sc-tx{padding:4px 8px;font-size:10px;font-weight:500;flex:1}
+
+/* gradient (liability) */
+.gbar-wrap{border:1px solid var(--line)}
+.gbar{height:16px;background:linear-gradient(to right,#2a7a4a,#74c28a,#d8d8c0,#e87070,#a83232)}
+.gbar-labels{display:flex;justify-content:space-between;padding:3px 6px;font-size:10px;color:var(--muted);font-weight:500}
+
+/* callout */
+.cbox{font-size:11px;line-height:1.6;color:var(--muted);padding:9px 11px;border-left:3px solid var(--line);background:rgba(0,0,0,.02)}
+.cbox strong{color:var(--ink);font-weight:600}
+.cbox.rd{border-left-color:var(--red);background:rgba(168,50,50,.04)}
+.cbox.gn{border-left-color:var(--green);background:rgba(42,122,74,.04)}
+.cbox.tl{border-left-color:var(--teal);background:rgba(45,91,107,.04)}
+
+/* table */
+.sec-title{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;margin-bottom:6px}
+.sec-desc{font-size:12px;color:var(--muted);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:12px;border:1px solid var(--line)}
+th{text-align:left;padding:8px 11px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);background:#f9f7f0;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:9px 11px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#faf8f1}
+.ztile{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.1)}
+.bw{display:inline-block;width:68px;height:5px;background:#eeeae0;vertical-align:middle;margin-left:5px}
+.bf{height:100%}
+.obbar{display:flex;height:7px;border-radius:2px;overflow:hidden;min-width:80px}
+.obr{background:#e85a4a}.obg{background:#3ecf82}.obs{background:#c8ccda}
+.bdg{display:inline-block;padding:2px 6px;font-size:10px;font-weight:600;border-radius:2px}
+.bdg.gn{background:rgba(42,122,74,.1);color:var(--green)}
+.bdg.rd{background:rgba(168,50,50,.1);color:var(--red)}
+.bdg.nt{background:rgba(85,94,114,.1);color:#555e72}
+
+/* panels */
+.panel{display:none}.panel.on{display:block}
+
+/* loading */
+.mload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#e8e4d8;color:var(--muted);font-size:13px;z-index:99;pointer-events:none;
+  transition:opacity .3s}
+.mload.gone{opacity:0;pointer-events:none}
+
+.foot{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.7}
+
+@media(max-width:760px){
+  .page{padding:20px 14px}
+  .stats{grid-template-columns:1fr 1fr}
+  .st:nth-child(2){border-right:none}
+  .st:nth-child(1),.st:nth-child(2){border-bottom:1px solid var(--line)}
+  .maprow{grid-template-columns:1fr}
+  .sidebox{border-left:none;border-top:1px solid var(--line)}
+  h1{font-size:26px}
+  .tab{padding:10px 4px;font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="eyebrow">Lucas County · 137,000+ Parcels · ACS 2024</div>
+  <h1>Toledo, Ohio<br>Property &amp; Tax Dashboard</h1>
+  <p class="sub">Income distribution, assessed property values, and split-rate tax liability — all in one place.</p>
+  <p class="meta">Lucas County Auditor parcel data · ACS 5-Year Estimates 2024 · Zero-value and tax-exempt parcels excluded from medians</p>
+
+  <div class="tabs">
+    <button class="tab on" id="t-income" onclick="go('income')">💰 Income<small>Median household by ZIP</small></button>
+    <button class="tab"    id="t-land"   onclick="go('land')">🌍 Land Value<small>Median assessed land</small></button>
+    <button class="tab"    id="t-bldg"   onclick="go('bldg')">🏠 Building Value<small>Median assessed building</small></button>
+    <button class="tab"    id="t-liab"   onclick="go('liab')">⚖️ Tax Liability<small>Split rate change per parcel</small></button>
+  </div>
+
+  <!-- INCOME -->
+  <div class="panel on" id="p-income">
+    <div class="stats">
+      <div class="st"><div class="st-l">City Median</div><div class="st-v rd">$49,724</div></div>
+      <div class="st"><div class="st-l">Lucas County</div><div class="st-v">$62,224</div></div>
+      <div class="st"><div class="st-l">Highest ZIP</div><div class="st-v tl">$71,171 <small>(43623)</small></div></div>
+      <div class="st"><div class="st-l">Lowest ZIP</div><div class="st-v rd">$29,275 <small>(43608)</small></div></div>
+    </div>
+    <div class="maprow">
+      <div class="mapbox"><div class="leafmap" id="m-income"></div><div class="mload" id="l-income">Loading ZIP boundaries…</div></div>
+      <div class="sidebox">
+        <div><div class="s-title">Household Income</div><div class="s-sub" style="margin-top:5px">ACS 2024 · Median per ZIP</div></div>
+        <div class="scale">
+          <div class="sc-row"><div class="sc-sw" style="background:#3a0e0e"></div><div class="sc-tx">Under $30,000</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#7a1f1f"></div><div class="sc-tx">$30k – $45k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#b85a3a"></div><div class="sc-tx">$45k – $55k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#e0a060"></div><div class="sc-tx">$55k – $65k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#f6dba0"></div><div class="sc-tx">$65k and above</div></div>
+        </div>
+        <div class="cbox rd"><strong>$42k gap:</strong> ZIP 43623 earns $71k vs $29k in 43608 — across just a few miles of Toledo.</div>
+      </div>
+    </div>
+    <div class="sec-title">Income by ZIP</div>
+    <p class="sec-desc">Ranked high to low · Source: ACS B19013 2024</p>
+    <table><thead><tr><th>ZIP</th><th>Area</th><th>Median Income</th><th>vs City</th></tr></thead><tbody id="tb-income"></tbody></table>
+  </div>
+
+  <!-- LAND -->
+  <div class="panel" id="p-land">
+    <div class="stats">
+      <div class="st"><div class="st-l">Highest (43623)</div><div class="st-v rd">$38,800</div></div>
+      <div class="st"><div class="st-l">Lowest (43609)</div><div class="st-v">$4,600</div></div>
+      <div class="st"><div class="st-l">Disparity</div><div class="st-v rd">8.4<small>×</small></div></div>
+      <div class="st"><div class="st-l">Taxed Parcels</div><div class="st-v">100k<small>+</small></div></div>
+    </div>
+    <div class="maprow">
+      <div class="mapbox"><div class="leafmap" id="m-land"></div><div class="mload" id="l-land">Loading ZIP boundaries…</div></div>
+      <div class="sidebox">
+        <div><div class="s-title">Land Value</div><div class="s-sub" style="margin-top:5px">Parcels with value &gt;$0 only</div></div>
+        <div class="scale">
+          <div class="sc-row"><div class="sc-sw" style="background:#3a0e0e"></div><div class="sc-tx">Under $6,000</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#7a1f1f"></div><div class="sc-tx">$6k – $10k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#b85a3a"></div><div class="sc-tx">$10k – $18k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#e0a060"></div><div class="sc-tx">$18k – $30k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#f6dba0"></div><div class="sc-tx">$30k and above</div></div>
+        </div>
+        <div class="cbox rd"><strong>8.4× gap:</strong> Ottawa Hills-adjacent 43623 ($38,800) vs South Toledo 43609 ($4,600).</div>
+      </div>
+    </div>
+    <div class="sec-title">Land Value by ZIP</div>
+    <p class="sec-desc">Parcels with $0 land excluded · Ranked high to low</p>
+    <table><thead><tr><th>ZIP</th><th>Area</th><th>Median Land</th><th>Taxed Parcels</th></tr></thead><tbody id="tb-land"></tbody></table>
+  </div>
+
+  <!-- BLDG -->
+  <div class="panel" id="p-bldg">
+    <div class="stats">
+      <div class="st"><div class="st-l">Highest (43623)</div><div class="st-v tl">$180,100</div></div>
+      <div class="st"><div class="st-l">Lowest (43609)</div><div class="st-v">$24,900</div></div>
+      <div class="st"><div class="st-l">Disparity</div><div class="st-v tl">7.2<small>×</small></div></div>
+      <div class="st"><div class="st-l">Taxed Parcels</div><div class="st-v">100k<small>+</small></div></div>
+    </div>
+    <div class="maprow">
+      <div class="mapbox"><div class="leafmap" id="m-bldg"></div><div class="mload" id="l-bldg">Loading ZIP boundaries…</div></div>
+      <div class="sidebox">
+        <div><div class="s-title">Building Value</div><div class="s-sub" style="margin-top:5px">Parcels with value &gt;$0 only</div></div>
+        <div class="scale">
+          <div class="sc-row"><div class="sc-sw" style="background:#0e2a3a"></div><div class="sc-tx">Under $30,000</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#1e4a5c"></div><div class="sc-tx">$30k – $50k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#3a7a8a"></div><div class="sc-tx">$50k – $75k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#7aaab8"></div><div class="sc-tx">$75k – $120k</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#c8dde3"></div><div class="sc-tx">$120k and above</div></div>
+        </div>
+        <div class="cbox tl"><strong>7.2× gap:</strong> 43623 buildings ($180k) vs 43609 ($25k) — building values closely mirror land values.</div>
+      </div>
+    </div>
+    <div class="sec-title">Building Value by ZIP</div>
+    <p class="sec-desc">Parcels with $0 building excluded · Ranked high to low</p>
+    <table><thead><tr><th>ZIP</th><th>Area</th><th>Median Building</th><th>Taxed Parcels</th></tr></thead><tbody id="tb-bldg"></tbody></table>
+  </div>
+
+  <!-- LIAB -->
+  <div class="panel" id="p-liab">
+    <div class="stats">
+      <div class="st"><div class="st-l">Most Burdened (43614)</div><div class="st-v rd">+$15.97</div></div>
+      <div class="st"><div class="st-l">Most Relieved (43623)</div><div class="st-v gn">−$20.84</div></div>
+      <div class="st"><div class="st-l">ZIPs Pay More</div><div class="st-v rd">8 <small>of 14</small></div></div>
+      <div class="st"><div class="st-l">ZIPs Pay Less</div><div class="st-v gn">6 <small>of 14</small></div></div>
+    </div>
+    <div class="maprow">
+      <div class="mapbox"><div class="leafmap" id="m-liab"></div><div class="mload" id="l-liab">Loading ZIP boundaries…</div></div>
+      <div class="sidebox">
+        <div><div class="s-title">Tax Liability</div><div class="s-sub" style="margin-top:5px">Split Rate − Uniform Tax · taxed parcels only</div></div>
+        <div class="gbar-wrap"><div class="gbar"></div><div class="gbar-labels"><span style="color:var(--green)">Pays Less</span><span>Neutral</span><span style="color:var(--red)">Pays More</span></div></div>
+        <div class="scale">
+          <div class="sc-row"><div class="sc-sw" style="background:#2a7a4a"></div><div class="sc-tx">Under −$10 (large benefit)</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#74c28a"></div><div class="sc-tx">−$10 to −$1</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#c8d8c0"></div><div class="sc-tx">−$1 to $0 (near neutral)</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#e8c8a0"></div><div class="sc-tx">$0 to +$1 (near neutral)</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#e87070"></div><div class="sc-tx">+$1 to +$10</div></div>
+          <div class="sc-row"><div class="sc-sw" style="background:#a83232"></div><div class="sc-tx">Over +$10 (high burden)</div></div>
+        </div>
+        <div class="cbox gn"><strong>Who benefits:</strong> Land-heavy parcels — large lots relative to structures. 43623 saves $20.84/parcel.</div>
+        <div class="cbox rd" style="margin-top:4px"><strong>Who pays more:</strong> Building-heavy suburban ZIPs. 43614 adds $15.97/parcel on average.</div>
+      </div>
+    </div>
+    <div class="sec-title">Liability by ZIP</div>
+    <p class="sec-desc">Only taxed parcels (uniform tax &gt;$0) · Ordered best to worst outcome</p>
+    <table><thead><tr><th>ZIP</th><th>Area</th><th>Taxed Parcels</th><th>Median Liability</th><th>Breakdown</th><th>Outcome</th></tr></thead><tbody id="tb-liab"></tbody></table>
+  </div>
+
+  <div class="foot">
+    <strong>Methodology:</strong> All medians exclude $0 values and unassessed parcels. Liability = Split Rate Tax − Uniform Tax per parcel. ZIP assignment via parcel lat/lon. Income: ACS 2024 B19013. Property: Lucas County Auditor. ZIP boundaries: Census TIGER via OpenDataDE.
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const INCOME_DATA = {"43604": 21953, "43605": 38291, "43606": 66917, "43607": 32568, "43608": 29275, "43609": 41827, "43610": 46469, "43611": 62042, "43612": 50728, "43613": 64384, "43614": 58961, "43615": 54193, "43620": 39268, "43623": 71171};
+const ZIP_DATA = {"43604": {"name": "Downtown Toledo", "count_all": 3409, "count_taxed": 684, "land": 5600.0, "bldg": 27200.0, "total": 37150.0, "liab": -4.92, "uniform": 143.66, "split": 140.66, "pct_more": 46.6, "pct_less": 53.4, "pct_same": 0.0}, "43605": {"name": "East Toledo", "count_all": 9598, "count_taxed": 7986, "land": 7600.0, "bldg": 29800.0, "total": 34100.0, "liab": 8.18, "uniform": 139.04, "split": 150.83, "pct_more": 77.4, "pct_less": 22.6, "pct_same": 0.0}, "43606": {"name": "Old West End / Univ.", "count_all": 6530, "count_taxed": 5857, "land": 19400.0, "bldg": 76500.0, "total": 82600.0, "liab": -0.33, "uniform": 344.08, "split": 364.64, "pct_more": 49.6, "pct_less": 50.3, "pct_same": 0.1}, "43607": {"name": "West Toledo", "count_all": 13435, "count_taxed": 11740, "land": 6500.0, "bldg": 39600.0, "total": 39500.0, "liab": 1.7, "uniform": 166.32, "split": 161.55, "pct_more": 58.3, "pct_less": 41.7, "pct_same": 0.1}, "43608": {"name": "North Toledo", "count_all": 10469, "count_taxed": 9208, "land": 5600.0, "bldg": 29600.0, "total": 29500.0, "liab": 1.0, "uniform": 123.2, "split": 124.24, "pct_more": 53.0, "pct_less": 47.0, "pct_same": 0.0}, "43609": {"name": "South Toledo", "count_all": 9114, "count_taxed": 7335, "land": 4600.0, "bldg": 24900.0, "total": 22700.0, "liab": 1.7, "uniform": 94.16, "split": 97.02, "pct_more": 65.7, "pct_less": 34.3, "pct_same": 0.0}, "43610": {"name": "Vistula / North End", "count_all": 8059, "count_taxed": 6935, "land": 5500.0, "bldg": 32100.0, "total": 30300.0, "liab": -0.91, "uniform": 125.4, "split": 122.8, "pct_more": 47.6, "pct_less": 52.4, "pct_same": 0.0}, "43611": {"name": "Point Place", "count_all": 4562, "count_taxed": 4294, "land": 21600.0, "bldg": 79900.0, "total": 98800.0, "liab": 6.82, "uniform": 427.46, "split": 437.59, "pct_more": 62.8, "pct_less": 37.1, "pct_same": 0.0}, "43612": {"name": "North Toledo", "count_all": 14684, "count_taxed": 13161, "land": 13500.0, "bldg": 46500.0, "total": 57110.0, "liab": 2.85, "uniform": 240.24, "split": 253.43, "pct_more": 60.6, "pct_less": 39.4, "pct_same": 0.0}, "43613": {"name": "West Toledo / Trilby", "count_all": 20612, "count_taxed": 18862, "land": 21600.0, "bldg": 95000.0, "total": 113600.0, "liab": -3.25, "uniform": 491.04, "split": 483.73, "pct_more": 46.2, "pct_less": 53.7, "pct_same": 0.0}, "43614": {"name": "Reynolds Corners", "count_all": 14962, "count_taxed": 13276, "land": 19400.0, "bldg": 57900.0, "total": 73100.0, "liab": 15.97, "uniform": 316.8, "split": 345.46, "pct_more": 71.7, "pct_less": 28.2, "pct_same": 0.1}, "43615": {"name": "West Toledo", "count_all": 13714, "count_taxed": 12460, "land": 26900.0, "bldg": 112900.0, "total": 125800.0, "liab": 5.11, "uniform": 544.5, "split": 547.07, "pct_more": 54.9, "pct_less": 45.1, "pct_same": 0.0}, "43620": {"name": "Old West End", "count_all": 3164, "count_taxed": 2688, "land": 6600.0, "bldg": 50350.0, "total": 41850.0, "liab": -6.11, "uniform": 170.06, "split": 159.66, "pct_more": 43.7, "pct_less": 56.3, "pct_same": 0.0}, "43623": {"name": "Ottawa Hills border", "count_all": 4272, "count_taxed": 3899, "land": 38800.0, "bldg": 180100.0, "total": 207400.0, "liab": -20.84, "uniform": 881.76, "split": 871.43, "pct_more": 38.7, "pct_less": 61.3, "pct_same": 0.0}};
+
+const ZIP_URL = 'https://raw.githubusercontent.com/OpenDataDE/State-zip-code-GeoJSON/master/oh_ohio_zip_codes_geo.min.json';
+let geoJSON = null;
+const mapInst = {};
+
+// color functions
+function ic(v){return v>=65000?'#f6dba0':v>=55000?'#e0a060':v>=45000?'#b85a3a':v>=30000?'#7a1f1f':'#3a0e0e'}
+function lc(v){return v>=30000?'#f6dba0':v>=18000?'#e0a060':v>=10000?'#b85a3a':v>=6000?'#7a1f1f':'#3a0e0e'}
+function bc(v){return v>=120000?'#c8dde3':v>=75000?'#7aaab8':v>=50000?'#3a7a8a':v>=30000?'#1e4a5c':'#0e2a3a'}
+function libc(v){return v<-10?'#2a7a4a':v<-1?'#74c28a':v<0?'#c8d8c0':v<1?'#e8c8a0':v<10?'#e87070':'#a83232'}
+
+function fk(n){return '$'+(n>=1000?(n/1000).toFixed(0)+'k':n)}
+function ff(n){return '$'+Number(n).toLocaleString()}
+function fl(l){return(l>=0?'+':'\u2212')+'$'+Math.abs(l).toFixed(2)}
+
+async function fetchGeo(){
+  if(geoJSON) return geoJSON;
+  const r = await fetch(ZIP_URL);
+  if(!r.ok) throw new Error('GeoJSON fetch failed: '+r.status);
+  geoJSON = await r.json();
+  return geoJSON;
+}
+
+function addTiles(m){
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+    {subdomains:'abcd',maxZoom:18,attribution:'&copy; OSM &copy; CARTO'}).addTo(m);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    {subdomains:'abcd',maxZoom:18,pane:'shadowPane'}).addTo(m);
+}
+
+function lbl(center, zip, val, col){
+  return L.marker(center,{
+    icon:L.divIcon({
+      className:'',
+      html:'<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:600;color:#1a1a1a;'+
+        'background:rgba(255,255,255,.9);padding:2px 5px;border-radius:2px;white-space:nowrap;'+
+        'text-align:center;line-height:1.4;box-shadow:0 1px 3px rgba(0,0,0,.15)">'+
+        zip+'<br><span style="font-size:9px;color:'+col+';font-weight:700">'+val+'</span></div>',
+      iconSize:[60,28],iconAnchor:[30,14]
+    }),
+    interactive:false
+  });
+}
+
+async function buildMap(id, colorFn, valFn, labelVal, labelCol, tipFn, ourKeys){
+  if(mapInst[id]) return;
+  const el = document.getElementById('m-'+id);
+  const loadEl = document.getElementById('l-'+id);
+  const m = L.map(el,{center:[41.665,-83.575],zoom:11,scrollWheelZoom:false});
+  addTiles(m);
+  mapInst[id] = m;
+  try {
+    const all = await fetchGeo();
+    const keys = new Set(ourKeys);
+    const fc = {type:'FeatureCollection',features:all.features.filter(f=>keys.has(f.properties.ZCTA5CE10))};
+    const layer = L.geoJSON(fc,{
+      style: function(f){
+        const zip = f.properties.ZCTA5CE10;
+        const v = valFn(zip);
+        return {fillColor:v!=null?colorFn(v):'#ddd',fillOpacity:.83,color:'#fff',weight:1.5};
+      },
+      onEachFeature: function(f,lyr){
+        const zip = f.properties.ZCTA5CE10;
+        const v = valFn(zip);
+        if(v==null) return;
+        lbl(lyr.getBounds().getCenter(), zip, labelVal(zip), labelCol(zip)).addTo(m);
+        lyr.on('mouseover',function(){lyr.setStyle({weight:3,color:'#1a1a1a'});});
+        lyr.on('mouseout', function(){layer.resetStyle(lyr);});
+        lyr.bindTooltip(tipFn(zip),{sticky:true,direction:'top'});
+      }
+    }).addTo(m);
+    m.fitBounds(layer.getBounds(),{padding:[16,16]});
+    if(loadEl){loadEl.classList.add('gone');setTimeout(()=>loadEl.style.display='none',400);}
+  } catch(e) {
+    if(loadEl) loadEl.innerHTML = '⚠ Could not load boundaries: '+e.message;
+    console.error(id, e);
+  }
+}
+
+const ALL_ZIPS = Object.keys(ZIP_DATA);
+
+function initIncome(){
+  buildMap('income',
+    ic,
+    z => INCOME_DATA[z],
+    z => fk(INCOME_DATA[z]),
+    z => '#a83232',
+    z => '<strong style="font-size:13px">ZIP '+z+'</strong><br>'+ZIP_DATA[z].name+'<br><strong style="color:#a83232">'+ff(INCOME_DATA[z])+'</strong> median income',
+    ALL_ZIPS
+  );
+}
+function initLand(){
+  buildMap('land',
+    lc,
+    z => ZIP_DATA[z].land,
+    z => fk(ZIP_DATA[z].land),
+    z => '#a83232',
+    z => '<strong style="font-size:13px">ZIP '+z+'</strong><br>'+ZIP_DATA[z].name+'<br><strong style="color:#a83232">'+ff(ZIP_DATA[z].land)+'</strong> median land value',
+    ALL_ZIPS
+  );
+}
+function initBldg(){
+  buildMap('bldg',
+    bc,
+    z => ZIP_DATA[z].bldg,
+    z => fk(ZIP_DATA[z].bldg),
+    z => '#2d5b6b',
+    z => '<strong style="font-size:13px">ZIP '+z+'</strong><br>'+ZIP_DATA[z].name+'<br><strong style="color:#2d5b6b">'+ff(ZIP_DATA[z].bldg)+'</strong> median building value',
+    ALL_ZIPS
+  );
+}
+function initLiab(){
+  buildMap('liab',
+    libc,
+    z => ZIP_DATA[z].liab,
+    z => fl(ZIP_DATA[z].liab),
+    z => ZIP_DATA[z].liab<-0.01?'#2a7a4a':ZIP_DATA[z].liab>0.01?'#a83232':'#6e6862',
+    z => {
+      const d=ZIP_DATA[z];
+      const lc2=d.liab<-0.01?'#2a7a4a':d.liab>0.01?'#a83232':'#6e6862';
+      return '<strong style="font-size:13px">ZIP '+z+'</strong><br>'+d.name+
+        '<br><strong style="color:'+lc2+';font-size:14px">'+fl(d.liab)+'</strong> median liability'+
+        '<br><span style="font-size:11px;line-height:2">&#128308;Pay more: <b>'+d.pct_more+'%</b>'+
+        ' &nbsp;&#128994;Pay less: <b>'+d.pct_less+'%</b>'+
+        '<br>'+d.count_taxed.toLocaleString()+' taxed parcels</span>';
+    },
+    ALL_ZIPS
+  );
+}
+
+// tab switching
+const PANELS = ['income','land','bldg','liab'];
+function go(id){
+  PANELS.forEach(p=>{
+    document.getElementById('p-'+p).className='panel'+(p===id?' on':'');
+    document.getElementById('t-'+p).className='tab'+(p===id?' on':'');
+  });
+  setTimeout(()=>{
+    if(id==='income') initIncome();
+    if(id==='land')   initLand();
+    if(id==='bldg')   initBldg();
+    if(id==='liab')   initLiab();
+    if(mapInst[id]) mapInst[id].invalidateSize();
+  },60);
+}
+
+// tables
+function mkRow(zip,col1,col2,col3,col4){
+  return '<tr><td>'+col1+'</td><td>'+col2+'</td><td>'+col3+'</td><td>'+col4+'</td></tr>';
+}
+
+// income table
+(function(){
+  const s=Object.entries(INCOME_DATA).sort((a,b)=>b[1]-a[1]);
+  const mx=Math.max(...s.map(e=>e[1]));
+  document.getElementById('tb-income').innerHTML=s.map(([z,v])=>{
+    const pct=((v/49724-1)*100).toFixed(0);
+    const pc=pct>=0?'var(--green)':'var(--red)';
+    const bw=(v/mx*100).toFixed(0);
+    return '<tr>'+
+      '<td><span class="ztile" style="background:'+ic(v)+'"></span><strong>'+z+'</strong></td>'+
+      '<td>'+ZIP_DATA[z].name+'</td>'+
+      '<td>'+ff(v)+'<span class="bw"><span class="bf" style="width:'+bw+'%;background:var(--red)"></span></span></td>'+
+      '<td style="color:'+pc+';font-weight:600">'+(pct>=0?'+':'')+pct+'%</td>'+
+    '</tr>';
+  }).join('');
+})();
+
+// land table
+(function(){
+  const s=Object.entries(ZIP_DATA).sort((a,b)=>b[1].land-a[1].land);
+  const mx=Math.max(...s.map(e=>e[1].land));
+  document.getElementById('tb-land').innerHTML=s.map(([z,d])=>{
+    const bw=(d.land/mx*100).toFixed(0);
+    return '<tr>'+
+      '<td><span class="ztile" style="background:'+lc(d.land)+'"></span><strong>'+z+'</strong></td>'+
+      '<td>'+d.name+'</td>'+
+      '<td>'+ff(d.land)+'<span class="bw"><span class="bf" style="width:'+bw+'%;background:var(--red)"></span></span></td>'+
+      '<td style="color:var(--muted)">'+d.count_taxed.toLocaleString()+'</td>'+
+    '</tr>';
+  }).join('');
+})();
+
+// bldg table
+(function(){
+  const s=Object.entries(ZIP_DATA).sort((a,b)=>b[1].bldg-a[1].bldg);
+  const mx=Math.max(...s.map(e=>e[1].bldg));
+  document.getElementById('tb-bldg').innerHTML=s.map(([z,d])=>{
+    const bw=(d.bldg/mx*100).toFixed(0);
+    return '<tr>'+
+      '<td><span class="ztile" style="background:'+bc(d.bldg)+'"></span><strong>'+z+'</strong></td>'+
+      '<td>'+d.name+'</td>'+
+      '<td>'+ff(d.bldg)+'<span class="bw"><span class="bf" style="width:'+bw+'%;background:var(--teal)"></span></span></td>'+
+      '<td style="color:var(--muted)">'+d.count_taxed.toLocaleString()+'</td>'+
+    '</tr>';
+  }).join('');
+})();
+
+// liab table
+(function(){
+  const s=Object.entries(ZIP_DATA).sort((a,b)=>a[1].liab-b[1].liab);
+  document.getElementById('tb-liab').innerHTML=s.map(([z,d])=>{
+    const lc2=d.liab<-0.01?'var(--green)':d.liab>0.01?'var(--red)':'var(--muted)';
+    const dom=d.pct_less>d.pct_more?{t:'Pays Less',c:'gn'}:d.pct_more>d.pct_less?{t:'Pays More',c:'rd'}:{t:'Mixed',c:'nt'};
+    return '<tr>'+
+      '<td><span class="ztile" style="background:'+libc(d.liab)+'"></span><strong>'+z+'</strong></td>'+
+      '<td>'+d.name+'</td>'+
+      '<td style="color:var(--muted)">'+d.count_taxed.toLocaleString()+'</td>'+
+      '<td style="color:'+lc2+';font-weight:700;font-size:13px">'+fl(d.liab)+'</td>'+
+      '<td><div class="obbar"><div class="obr" style="width:'+d.pct_more+'%"></div>'+
+        '<div class="obg" style="width:'+d.pct_less+'%"></div>'+
+        '<div class="obs" style="width:'+d.pct_same+'%"></div></div>'+
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">&#128308;'+d.pct_more+'% &#128994;'+d.pct_less+'% &#9899;'+d.pct_same+'%</div></td>'+
+      '<td><span class="bdg '+dom.c+'">'+dom.t+'</span></td>'+
+    '</tr>';
+  }).join('');
+})();
+
+// init first map on load
+window.addEventListener('load', initIncome);
+</script>
+</body>
+</html>
